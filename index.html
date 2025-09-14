@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TubeDJ with Fixed Volume Sliders</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        :root {
+            --secondary-color: #ff4081;
+        }
+        
+        body {
+            background: #0a2a66;
+            color: #00e0ff;
+            font-family: sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        
+        .app-title {
+            text-align: center;
+            font-size: 28px;
+            margin-bottom: 30px;
+            color: #00e0ff;
+            text-shadow: 0 0 10px rgba(0, 224, 255, 0.7);
+        }
+        
+        .deck-grid {
+            display: grid;
+            grid-template-columns: 1fr 60px 100px 1fr 60px 100px;
+            gap: 10px;
+            justify-items: center;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        
+        .deck {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .fader {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 200px;
+            position: relative;
+        }
+        
+        .fader label.deck-label {
+            position: absolute;
+            top: -25px;
+            font-weight: bold;
+            font-size: 20px;
+            color: #00e0ff;
+            text-shadow: 0 0 5px rgba(0, 224, 255, 0.8);
+        }
+        
+        /* Fixed Volume faders */
+        .vertical-slider {
+            transform: rotate(270deg);
+            -webkit-appearance: none;
+            appearance: none;
+            width: 160px;
+            height: 18px;
+            background: linear-gradient(to right, #222, #000);
+            border-radius: 8px;
+            outline: none;
+            margin: 20px;
+            box-shadow: inset 0 3px 6px rgba(0, 0, 0, 0.8);
+            cursor: pointer;
+            z-index: 10;
+            position: relative;
+        }
+        
+        .vertical-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 24px;
+            height: 28px;
+            background: #222;
+            border: 2px solid #00e0ff;
+            border-radius: 4px;
+            cursor: pointer;
+            box-shadow: 0 0 6px #00e0ff, 0 0 12px rgba(0, 224, 255, 0.6);
+        }
+        
+        .vertical-slider::-moz-range-thumb {
+            width: 24px;
+            height: 28px;
+            background: #222;
+            border: 2px solid #00e0ff;
+            border-radius: 4px;
+            cursor: pointer;
+            box-shadow: 0 0 6px #00e0ff, 0 0 12px rgba(0, 224, 255, 0.6);
+        }
+        
+        /* Speed (Pitch) faders */
+        .speed-control {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 200px;
+            position: relative;
+            margin: 0 10px;
+        }
+        
+        .speed-control label.pitch-label {
+            position: absolute;
+            top: -25px;
+            font-weight: bold;
+            font-size: 16px;
+            color: #ff4081;
+            text-shadow: 0 0 5px rgba(255, 64, 129, 0.8);
+            z-index: 10;
+        }
+        
+        .pitch-slider {
+            transform: rotate(270deg);
+            -webkit-appearance: none;
+            appearance: none;
+            width: 160px;
+            height: 18px;
+            background: linear-gradient(to right, #111, #000);
+            border-radius: 8px;
+            outline: none;
+            box-shadow: inset 0 3px 6px rgba(0, 0, 0, 0.8);
+            cursor: pointer;
+            z-index: 10;
+            position: relative;
+        }
+        
+        .pitch-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 24px;
+            height: 28px;
+            background: #222;
+            border: 2px solid #ff4081;
+            border-radius: 4px;
+            cursor: pointer;
+            box-shadow: 0 0 6px #ff4081, 0 0 12px rgba(255, 64, 129, 0.6);
+        }
+        
+        .pitch-slider::-moz-range-thumb {
+            width: 24px;
+            height: 28px;
+            background: #222;
+            border: 2px solid #ff4081;
+            border-radius: 4px;
+            cursor: pointer;
+            box-shadow: 0 0 6px #ff4081, 0 0 12px rgba(255, 64, 129, 0.6);
+        }
+        
+        .rate-label {
+            position: absolute;
+            bottom: -30px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #ff4081;
+            text-shadow: 0 0 5px rgba(255, 64, 129, 0.8);
+        }
+        
+        /* Cue Points */
+        .cue-points {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .cue-button {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.3);
+            border: 2px solid var(--secondary-color);
+            color: var(--secondary-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        
+        .cue-button:hover {
+            background: rgba(255, 64, 129, 0.2);
+            box-shadow: 0 0 10px rgba(255, 64, 129, 0.5);
+        }
+        
+        .cue-button.active {
+            background: var(--secondary-color);
+            color: white;
+        }
+        
+        /* Crossfader */
+        .crossfader {
+            margin-top: 40px;
+            text-align: center;
+        }
+        
+        .crossfader input[type="range"] {
+            -webkit-appearance: none;
+            width: 500px;
+            height: 16px;
+            background: linear-gradient(to right, #333, #111);
+            border-radius: 8px;
+            outline: none;
+            box-shadow: inset 0 3px 6px rgba(0, 0, 0, 0.8);
+            cursor: pointer;
+        }
+        
+        .crossfader input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 36px;
+            height: 48px;
+            background: #222;
+            border: 2px solid #00e0ff;
+            border-radius: 6px;
+            cursor: pointer;
+            box-shadow: 0 0 8px #00e0ff, 0 0 14px rgba(0, 224, 255, 0.7);
+        }
+        
+        .crossfader input[type="range"]::-moz-range-thumb {
+            width: 36px;
+            height: 48px;
+            background: #222;
+            border: 2px solid #00e0ff;
+            border-radius: 6px;
+            cursor: pointer;
+            box-shadow: 0 0 8px #00e0ff, 0 0 14px rgba(0, 224, 255, 0.7);
+        }
+        
+        .url-input-container {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            margin-top: 10px;
+        }
+        
+        input[type="text"] {
+            width: 150px;
+            padding: 8px;
+            background: #001a3a;
+            border: 1px solid #00bcd4;
+            border-radius: 4px;
+            color: white;
+        }
+        
+        button {
+            padding: 10px 10px;
+            background: #00bcd4;
+            color: #0a2a66;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            width: 28%;
+            margin-left: 1px;
+        }
+        
+        button:hover {
+            background: #00e0ff;
+        }
+        
+        .shortcuts-help {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 14px;
+            color: #00bcd4;
+        }
+        
+        /* Fix for the slider container */
+        .slider-container {
+            position: relative;
+            height: 200px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* Mobile responsiveness */
+        @media (max-width: 768px) {
+            .deck-grid {
+                grid-template-columns: 1fr;
+                gap: 30px;
+            }
+            
+            .vertical-slider,
+            .pitch-slider {
+                transform: rotate(0deg);
+                width: 100%;
+                height: 50px;
+                margin: 12px 0;
+            }
+            
+            .vertical-slider::-webkit-slider-thumb,
+            .pitch-slider::-webkit-slider-thumb {
+                width: 48px;
+                height: 60px;
+            }
+            
+            .vertical-slider::-moz-range-thumb,
+            .pitch-slider::-moz-range-thumb {
+                width: 48px;
+                height: 60px;
+            }
+            
+            .crossfader input[type="range"] {
+                width: 95%;
+                height: 28px;
+            }
+            
+            .crossfader input[type="range"]::-webkit-slider-thumb {
+                width: 54px;
+                height: 72px;
+            }
+            
+            .crossfader input[type="range"]::-moz-range-thumb {
+                width: 54px;
+                height: 72px;
+            }
+            
+            input[type="text"],
+            button {
+                width: 90%;
+            }
+            
+            .fader, .speed-control {
+                height: auto;
+                margin: 20px 0;
+            }
+            
+            .fader label.deck-label,
+            .speed-control label.pitch-label {
+                position: static;
+                margin-bottom: 10px;
+            }
+            
+            .rate-label {
+                position: static;
+                margin-top: 10px;
+            }
+            
+            .cue-points {
+                margin-top: 10px;
+            }
+            
+            .cue-button {
+                width: 35px;
+                height: 35px;
+            }
+            
+            .url-input-container {
+                flex-direction: column;
+                gap: 5px;
+                margin-top: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-title">TubeDJ Mixer</div>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        function TubeDJ() {
+            const playersRef = React.useRef({});
+            const [volumes, setVolumes] = React.useState({ A: 50, B: 50, C: 50, D: 50 });
+            const [crossfade, setCrossfade] = React.useState(0.5);
+            const [videoIds, setVideoIds] = React.useState({ 
+                A: "GSAYEAvkm5U", 
+                B: "HNmPXDsRPAg", 
+                C: "zJ2irSiM5dQ", 
+                D: "Tzs-cn0UlhA", 
+            });
+            
+            const [rates, setRates] = React.useState({ A: 1, B: 1, C: 1, D: 1 });
+            
+            // Cue points (4 per deck)
+            const [cuePoints, setCuePoints] = React.useState({
+                A: [null, null, null, null],
+                B: [null, null, null, null],
+                C: [null, null, null, null],
+                D: [null, null, null, null]
+            });
+            
+            const playbackRates = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2];
+
+            React.useEffect(() => {
+                const tag = document.createElement("script");
+                tag.src = "https://www.youtube.com/iframe_api";
+                document.body.appendChild(tag);
+
+                window.onYouTubeIframeAPIReady = () => {
+                    ["A", "B", "C", "D"].forEach((id) => {
+                        playersRef.current[id] = new window.YT.Player(`player-${id}`, {
+                            height: "200",
+                            width: "300",
+                            videoId: videoIds[id],
+                            playerVars: { controls: 1 },
+                        });
+                    });
+                };
+                
+                const handleKeyPress = (e) => {
+                    if (e.key === 'q') setCuePoint('A', 0);
+                    if (e.key === 'w') setCuePoint('B', 0);
+                    if (e.key === 'e') setCuePoint('C', 0);
+                    if (e.key === 'r') setCuePoint('D', 0);
+                    if (e.key === 'a') jumpToCuePoint('A', 0);
+                    if (e.key === 's') jumpToCuePoint('B', 0);
+                    if (e.key === 'd') jumpToCuePoint('C', 0);
+                    if (e.key === 'f') jumpToCuePoint('D', 0);
+                };
+                
+                window.addEventListener('keydown', handleKeyPress);
+                return () => window.removeEventListener('keydown', handleKeyPress);
+            }, []);
+
+            const setCuePoint = (deck, index) => {
+                const player = playersRef.current[deck];
+                if (!player) return;
+                const currentTime = player.getCurrentTime();
+                setCuePoints(prev => {
+                    const newCuePoints = { ...prev };
+                    newCuePoints[deck][index] = currentTime;
+                    return newCuePoints;
+                });
+            };
+            
+            const clearCuePoint = (deck, index) => {
+                setCuePoints(prev => {
+                    const newCuePoints = { ...prev };
+                    newCuePoints[deck][index] = null;
+                    return newCuePoints;
+                });
+            };
+        
+            const jumpToCuePoint = (deck, index) => {
+                const player = playersRef.current[deck];
+                const cueTime = cuePoints[deck][index];
+                if (!player || cueTime === null) return;
+                player.seekTo(cueTime, true);
+            };
+
+            const applyVolumes = (xfade, currentVolumes) => {
+                const leftFactor = 1 - xfade;
+                const rightFactor = xfade;
+                ["A", "B"].forEach((deck) => {
+                    const player = playersRef.current[deck];
+                    if (player) {
+                        if (player.unMute) player.unMute();
+                        player.setVolume((currentVolumes[deck] / 100) * leftFactor * 100);
+                    }
+                });
+                ["C", "D"].forEach((deck) => {
+                    const player = playersRef.current[deck];
+                    if (player) {
+                        if (player.unMute) player.unMute();
+                        player.setVolume((currentVolumes[deck] / 100) * rightFactor * 100);
+                    }
+                });
+            };
+
+            const handleVolume = (deck, value) => {
+                const updated = { ...volumes, [deck]: value };
+                setVolumes(updated);
+                applyVolumes(crossfade, updated);
+            };
+
+            const handleCrossfade = (value) => {
+                setCrossfade(value);
+                applyVolumes(value, volumes);
+            };
+
+            const handleRateChange = (deck, value) => {
+                const nearest = playbackRates.reduce((prev, curr) =>
+                    Math.abs(curr - value) < Math.abs(prev - value) ? curr : prev
+                );
+                setRates((prev) => ({ ...prev, [deck]: nearest }));
+                const player = playersRef.current[deck];
+                if (player?.setPlaybackRate) {
+                    player.setPlaybackRate(nearest);
+                }
+            };
+
+            const extractVideoId = (urlOrId) => {
+                try {
+                    const url = new URL(urlOrId);
+                    if (url.hostname.includes("youtube.com")) {
+                        return url.searchParams.get("v");
+                    }
+                    if (url.hostname.includes("youtu.be")) {
+                        return url.pathname.slice(1);
+                    }
+                } catch {
+                    return urlOrId;
+                }
+                return urlOrId;
+            };
+
+            const loadVideo = (deck) => {
+                const id = extractVideoId(videoIds[deck]);
+                const player = playersRef.current[deck];
+                if (player?.loadVideoById) {
+                    player.loadVideoById(id);
+                }
+            };
+
+            return (
+                <div>
+                    <div className="deck-grid">
+                        {["A", "C", "B", "D"].map((deck) => (
+                            <React.Fragment key={deck}>
+                                <div className="deck">
+                                    <div id={`player-${deck}`}></div>
+                                    {/* Cue Points */}
+                                    <div className="cue-points">
+                                        {[0, 1, 2, 3].map((index) => (
+                                            <button
+                                                key={index}
+                                                className={`cue-button ${cuePoints[deck][index] !== null ? 'active' : ''}`}
+                                                onDoubleClick={() => setCuePoint(deck, index)}
+                                                onClick={() => jumpToCuePoint(deck, index)}
+                                                onContextMenu={(e) => {
+                                                    e.preventDefault();
+                                                    clearCuePoint(deck, index);
+                                                }}
+                                                title={`Cue ${index+1}: ${cuePoints[deck][index] !== null ? cuePoints[deck][index].toFixed(1) + 's' : 'Not set'}\nDouble-click to set\nClick to jump\nRight-click to clear`}
+                                            >
+                                                {cuePoints[deck][index] !== null ? index + 1 : "–"}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    {/* URL Input + Load button per deck */}
+                                    <div className="url-input-container">
+                                        <input
+                                            type="text"
+                                            placeholder={`YouTube URL/ID for ${deck}`}
+                                            value={videoIds[deck]}
+                                            onChange={(e) =>
+                                                setVideoIds((prev) => ({ ...prev, [deck]: e.target.value }))
+                                            }
+                                        />
+                                        <button onClick={() => loadVideo(deck)}>Load {deck}</button>
+                                    </div>
+                                </div>
+                                <div className="slider-container">
+                                    <label className="deck-label">{deck}</label>
+                                    <input
+                                        className="vertical-slider"
+                                        type="range"
+                                        min="0"
+                                        max="100"
+                                        value={volumes[deck]}
+                                        onChange={(e) => handleVolume(deck, Number(e.target.value))}
+                                    />
+                                </div>
+                                <div className="speed-control">
+                                    <label className="pitch-label">Pitch</label>
+                                    <input
+                                        className="pitch-slider"
+                                        type="range"
+                                        min="0.25"
+                                        max="2"
+                                        step="0.01"
+                                        value={rates[deck]}
+                                        onChange={(e) => handleRateChange(deck, Number(e.target.value))}
+                                    />
+                                    <div className="rate-label">{rates[deck].toFixed(2)}x</div>
+                                </div>
+                            </React.Fragment>
+                        ))}
+                    </div>
+
+                    <div className="crossfader">
+                        <label>(A/B ⇄ C/D)</label>
+                        <input
+                            type="range"
+                            min="0"
+                            max="1"
+                            step="0.01"
+                            value={crossfade}
+                            onChange={(e) => handleCrossfade(Number(e.target.value))}
+                        />
+                    </div>
+                    
+                    <div className="shortcuts-help">
+                        <p>Keyboard Shortcuts: Q/W/E/R to set cue points, A/S/D/F to jump to cue points</p>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById("root")).render(<TubeDJ />);
+    </script>
+</body>
+</html>
